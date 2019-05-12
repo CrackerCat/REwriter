@@ -1,0 +1,13 @@
+#pragma once
+class netlink;
+#include <ida.hpp>
+#include <idp.hpp>
+#include <loader.hpp>
+#include <kernwin.hpp>
+#include <bytes.hpp>
+#include <name.hpp>
+#include <funcs.hpp>
+#include <moves.hpp>
+#include <auto.hpp>
+#include <allins.hpp>
+#include <array>
