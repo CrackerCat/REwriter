@@ -23,7 +23,12 @@ void eliminate_security_check_cookie() {
 			for (csinsn_t* ins = bb->head(); ins; ins = ins->next()) {
 				if (ins->is_security_check_cookie()) {
 					auto prv = ins->prev();
+					/*
+						check for preceding xor rcx, rsp
+					*/
 					if (prv && prv->itype == NN_xor && prv->ops[0].is_reg(cs::x86regs::RCX) && prv->ops[1].is_reg(cs::x86regs::RSP)) {
+
+						//got it, combine predecessor with call into a single nop
 						cs::patchops::nop_ea(prv->ea, prv->size + ins->size);
 					}
 					else {
@@ -33,6 +38,9 @@ void eliminate_security_check_cookie() {
 
 				}
 				else if (ins->is_call_to_fn("__guard_dispatch_icall_fptr")) {
+					/*
+						translate to call rax
+					*/
 					ins->replace_with_byteseq<0xFF, 0xd0>();
 					nelim_guard_disp++;
 				}
@@ -86,6 +94,7 @@ unsigned eliminate_null_pointer_allocation_result_checks(ea_t address) {
 	csreglist_t templist{};
 
 	using cs::function_classes::cs_funcclass_t;
+	//convert function to our format
 	if (csfunc_t::decode(&result, address) == -1) {
 
 		return 0;
@@ -95,42 +104,70 @@ unsigned eliminate_null_pointer_allocation_result_checks(ea_t address) {
 
 		auto tail = bb->tail();
 
+		/*
+			check whether the function is a known allocation function
+		*/
 		if (!tail->has_role(cs_funcclass_t::memory_allocation))
 			continue;
 
 		csbb_t* fallthrough = result.get_fallthrough(bb);
 
 
+		/*
+			search for test REG,REG or cmp REG, 0
+
+		*/
 		auto raxuse = fallthrough->find_use_p(nullptr, cs::x86regs::RAX, &templist, [](csinsn_t * ins) {
 			return ins->is_possible_zero_test();
 		});
+
+		/*
+			Couldn't find zero test in current block, continue search for other allocs
+		*/
 		if (!raxuse) {
 			continue;
 		}
-		//msg("First use is a zero test.\n");
-
+		/*
+			locate next reference to ZF
+		*/
 		csinsn_t* hopefully_jzx = fallthrough->find_next_use(raxuse, cs::x86regs::ZF, &templist);
 
 		if (!hopefully_jzx) {
-			//msg("Couldn't trace ZF :(\n");
+			//no zfref
 			continue;
 		}
-
+		/*
+			if the next zref does not end the basic block or the zref is not a conditional branch, continue iteration
+		*/
 		if (hopefully_jzx != fallthrough->tail() || !hopefully_jzx->is_conditional_branch()) {
 			continue;
 		}
-
+		/*
+			is a conditional branch that references ZF, but its one of the more complex multi-flag conditional branches
+			if this happens it probably means the allocation function is mislabeled by ghidrina
+		*/
 		if (hopefully_jzx->itype != NN_jnz && hopefully_jzx->itype != NN_jz) {
 			continue;
 		}
-
+		/*
+			jz means branch target is the error handler, fallthrough is the normal code
+			should be the case more often than jnz because of compiler branch reordering around error/noreturns funcs
+		*/
 		if (hopefully_jzx->itype == NN_jz) {
 			hopefully_jzx->nop_out();
 		}
+		//jnz needs to be made unconditional
 		else if (hopefully_jzx->itype == NN_jnz) {
+
+			//not sure if this is possible 
+			if (!hopefully_jzx->may_make_branch_unconditional()) {
+				continue;
+			}
 			hopefully_jzx->make_unconditional_branch();
 		}
-
+		//since we eliminated the zfref we can elimate the def now too
+		//todo: actually verify that the non-error path redefines the defs of raxuse without
+		//any intervening use
 		raxuse->nop_out();
 		n_elims++;
 
@@ -228,7 +265,6 @@ void idaapi term(void)
 static const char help[] = "REwriter";
 static const char comment[] = "REwriter";
 static const char wanted_name[] = "REwriter";
-static const char wanted_hotkey[] = "";
 
 //--------------------------------------------------------------------------
 //

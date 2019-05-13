@@ -1,5 +1,9 @@
 
 #include "patchops.hpp"
+
+/*
+	adapted from some python code i wrote way back
+*/
 CS_NOINLINE
 static void fill_nopbuffer_impl(uint8_t* out, unsigned size) {
 	auto put = [out](auto... fks) {

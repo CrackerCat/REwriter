@@ -21,8 +21,8 @@ enum {
 class csinsn_t : public insn_t {
 	
 	
-	csinsn_t* __restrict m_next;
-	csinsn_t* __restrict m_prev;
+	csinsn_t* CS_RESTRICT m_next;
+	csinsn_t* CS_RESTRICT m_prev;
 	uint64_t m_exflags;
 	cs_x86_op_e m_norm_op;
 	uint8_t m_operand_count;
@@ -77,6 +77,7 @@ public:
 		m_next = ins;
 		ins->m_prev = this;
 	}
+
 	func_t* callee_func() const {
 		if (!is_call()) {
 			return nullptr;
@@ -91,7 +92,11 @@ public:
 			}
 		}
 	}
-
+	/*
+		return INT_MAX to indicate error
+		meant for inline cost estimation, INT_MAX will ensure it gets skipped safely without any
+		changes to the logic
+	*/
 	int callee_size() const {
 		if (!is_call()) {
 			return INT_MAX;
@@ -111,7 +116,9 @@ public:
 			}
 		}
 	}
-
+	/*
+		- 1 for retn 0xC3
+	*/
 	bool speculative_callee_fits_in_call() const {
 		return (callee_size() - 1) <= size;
 	}
@@ -336,6 +343,9 @@ public:
 
 	}
 	void nop_out() {
+		/*
+			alloca isnt really necessary
+		*/
 		uint8_t* buffer = (uint8_t*)alloca(this->size);
 
 		cs::patchops::fill_nopbuffer(buffer, this->size);
@@ -370,19 +380,7 @@ public:
 
 
 	bool is_any_invalid_param_call() {
-		if (!is_call()) {
-			return false;
-		}
-		else {
-			return is_call_to_any_fn(
-				"_invalid_parameter_noinfo_noreturn"//, 
-			//	"?_Xbad_alloc@std@@YAXXZ", 
-				//"?_Xlength_error@std@@YAXPEBD@Z",
-				//"interr"
-				//, 
-				//"abort"
-			);
-		}
+		return has_role(cs::function_classes::cs_funcclass_t::unhandleable_error);
 	}
 
 	qstring print_ud_list(bool use = true) {
@@ -450,7 +448,12 @@ public:
 	bool has_role(cs::function_classes::cs_funcclass_t role) const {
 		return m_call_class == role;
 	}
+	/*
+		returns true if we can safely deduce from just the instruction itself that the only purpose
+		of the instruction is to test if a register is zero
 
+		only intended for GPRS
+	*/
 	bool is_possible_zero_test() const {
 		if (m_norm_op == NN_S_test && ops[0].is_reg(ops[1].reg) && ops[1].is_reg(ops[0].reg)) {
 			return true;
@@ -511,11 +514,11 @@ class csbb_t {
 	ea_t m_end_addr;
 
 
-	csinsn_t* __restrict m_head;
-	csinsn_t* __restrict m_tail;
+	csinsn_t* CS_RESTRICT m_head;
+	csinsn_t* CS_RESTRICT m_tail;
 
-	csbb_t* __restrict m_prevb;
-	csbb_t* __restrict m_nextb;
+	csbb_t* CS_RESTRICT m_prevb;
+	csbb_t* CS_RESTRICT m_nextb;
 	csreglist_t m_use;
 	csreglist_t m_def;
 
@@ -747,9 +750,9 @@ public:
 
 class csfunc_t {
 
-	func_t* m_func;
-	csbb_t* m_blocks_head;
-	csbb_t* m_blocks_tail;
+	func_t* CS_RESTRICT m_func;
+	csbb_t* CS_RESTRICT m_blocks_head;
+	csbb_t* CS_RESTRICT m_blocks_tail;
 	std::map<ea_t, csbb_t*> m_ea_to_bb;
 
 	csbb_t** m_bbserial_lut;
@@ -851,7 +854,10 @@ public:
 			bb->regenerate_lists();
 		}
 	}
+	/*
+		i really fucked this one up and should rewrite this part from scratch
 
+	*/
 	void regen_predecessors_and_successors() {
 		for (csbb_t* bb = m_blocks_head; bb; bb = bb->nextb()) {
 
@@ -905,8 +911,13 @@ public:
 
 		}
 	}
-
+	/*
+		this is also disabled, i think it might be a little too aggressive
+	*/
 	void regen_endpoint_blocks() {
+		/*
+			clear error endpoint flag on all bbs
+		*/
 		for (csbb_t* CS_RESTRICT bb = m_blocks_head; bb; bb = bb->nextb()) {
 
 			bb->m_flags &= ~CSBB_IS_ERROR_ENDPOINT;
@@ -934,7 +945,10 @@ public:
 
 					
 				}
-
+				/*
+					if all successors of a basic block are error conditions, then the block is an error condition and simply
+					dispatches to different handlers so we mark it and trigger another pass to propagate its status
+				*/
 				if (n_endpoints == bb->successors().size() && !bb->is_error_endpoint()) {
 					bb->m_flags |= CSBB_IS_ERROR_ENDPOINT;
 					//msg("All successors of bb at 0x%llX are error endpoints, propagating status upwards.\n", (uint64_t)bb->startea());
@@ -976,7 +990,10 @@ public:
 			out->linkin_block(bb);
 
 
-
+			/*
+				if we hit an operation that unconditionally terminates control flow we need to rewind a bit and
+				trace the branches of already generated bbs and follow their paths for the next bbs
+			*/
 			if (need_reflow || bbset.find(currea) != bbset.end()) {
 				//msg("Doing reflow\n");
 				for (csbb_t* reflowbb = out->m_blocks_head; reflowbb; reflowbb = reflowbb->nextb()) {
@@ -1020,23 +1037,38 @@ public:
 };
 
 bool csinsn_t::may_trivially_inline_call() const {
-
+	/*
+		first check whether the bytes of the callee - 0xC3 byte will fit in the call itself
+	*/
 	if (!speculative_callee_fits_in_call()) {
 		return false;
 	}
 	else {
 		auto fn = callee_func();
 
+
+		/*
+			get dat func_t
+		*/
 		if (!fn) {
 			return false;
 		}
 
 		csfunc_t csfn{};
 
+
+		/*
+			its honestly not necessary to translate the callee but the analysis runs pretty quickly 
+			so im not too worried about it
+		*/
 		if (csfunc_t::decode(&csfn, fn->start_ea) == -1) {
+			//we couldn't translate to our format, bail out
 			return false;
 		}
+		/*
+			function has actual control flow, no bueno
 
+		*/
 		if (csfn.firstb() != csfn.lastb()) {
 			return false;
 		}
@@ -1044,6 +1076,7 @@ bool csinsn_t::may_trivially_inline_call() const {
 		csbb_t* bb = csfn.firstb();
 
 		if (bb->tail()->itype != NN_retn) {
+			//doesnt end in a ret, give up
 			return false;
 		}
 
