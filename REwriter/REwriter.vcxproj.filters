@@ -33,6 +33,9 @@
     <ClCompile Include="function_classes.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="register_file_x86_64.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="saner_instruction_range.hpp">

@@ -2,9 +2,65 @@
 #include "cs_core.hpp"
 #include <array>
 namespace cs::register_file {
+	namespace _build_register_file {
+		class register_file_builder_t;
 
+	}
 	//name, bitoffset, bitlength
+	class contigreg_t {
+		const char* m_name;
 
+		struct {
+			uint64_t m_bitoffs : 20;
+
+			uint64_t m_bitlength : 10;
+			uint64_t m_ida_register : 8;
+			uint64_t m_index : 10;
+
+		};
+
+
+		friend class _build_register_file::register_file_builder_t;
+
+
+	public:
+		constexpr contigreg_t(const char* name, unsigned bit_offset, unsigned bit_length, unsigned ida_register) : m_name(name),
+			m_bitoffs(bit_offset), m_bitlength(bit_length), m_ida_register(ida_register), m_index(0) {
+
+		}
+		constexpr contigreg_t() : m_name(""), m_bitoffs(0), m_bitlength(0), m_ida_register(0), m_index(0) {}
+
+
+		constexpr contigreg_t make_subentity(const char* subent_name, unsigned displ, unsigned bit_length, unsigned ida_register) const {
+			return contigreg_t{ subent_name, (unsigned)m_bitoffs + displ, bit_length, ida_register };
+		}
+
+		constexpr void set_index(unsigned v) {
+			m_index = v;
+		}
+
+		constexpr unsigned index() const {
+			return m_index;
+		}
+
+		constexpr const char* name() const {
+			return m_name;
+		}
+
+		constexpr unsigned bitoffset() const {
+			return m_bitoffs;
+		}
+
+		constexpr unsigned bitlength() const {
+			return m_bitlength;
+		}
+
+		constexpr unsigned idareg() const {
+			return m_ida_register;
+		}
+
+
+	};
 
 	namespace gpregister_defs {
 		//all 64 bits
@@ -135,11 +191,6 @@ namespace cs::register_file {
 		+ vector_defs::NZMMREGS
 		+ vector_defs::NVECCONF;
 	
-
-}
-
-namespace cs::register_file::_build_register_file {
-
 	namespace ida_registers {
 		enum {
 			rax = 0,
@@ -315,41 +366,19 @@ namespace cs::register_file::_build_register_file {
 			k5 = 170,
 			k6 = 171,
 			k7 = 172,
+			NIDAREGS
 		};
 	}
+}
+
+namespace cs::register_file::_build_register_file {
+
+	
 
 
-	class register_file_builder_t;
-	class contigreg_t {
-		const char* m_name;
-		
-		struct {
-			uint64_t m_bitoffs : 20;
-
-			uint64_t m_bitlength : 10;
-			uint64_t m_ida_register : 8;
-
-		};
-		
-
-		friend class register_file_builder_t;
-
-
-	public:
-		constexpr contigreg_t(const char* name, unsigned bit_offset, unsigned bit_length, unsigned ida_register) : m_name(name),
-			m_bitoffs(bit_offset), m_bitlength(bit_length), m_ida_register(ida_register) {
-		
-		}
-		constexpr contigreg_t() : m_name(""), m_bitoffs(0), m_bitlength(0), m_ida_register(0) {}
-		
-
-		constexpr contigreg_t make_subentity(const char* subent_name, unsigned displ, unsigned bit_length, unsigned ida_register) {
-			return contigreg_t{ subent_name, (unsigned)m_bitoffs + displ, bit_length, ida_register };
-
-		}
-
-	};
-
+	
+	
+#if 0
 	class register_file_builder_t {
 		//more alias registers exist than whole registers
 
@@ -385,7 +414,7 @@ namespace cs::register_file::_build_register_file {
 		}
 
 		constexpr void add_subreg(const char* master_name, const char* subname, unsigned displ, unsigned bitlength, unsigned idareg) {
-			cs_constexpr_assert(m_curr_alias < NAVAIL_ALIASES);
+			//cs_constexpr_assert(m_curr_alias < NAVAIL_ALIASES);
 
 			m_contigreg_subents[m_curr_alias++] = find_contigreg_by_name(master_name)->make_subentity(subname, displ, bitlength, idareg);
 		}
@@ -400,15 +429,83 @@ namespace cs::register_file::_build_register_file {
 			
 			for (unsigned i = 0; i < m_curr_contigreg; ++i) {
 				out_regs[i] = m_contigregs[i];
+				out_regs[i].set_index(i);
 			}
 
 			for (unsigned i = 0; i < m_curr_alias; ++i) {
-				out_regs[i + (unsigned)m_curr_contigreg] = m_contigreg_subents[i];
+				out_regs[i + m_curr_contigreg] = m_contigreg_subents[i];
+				out_regs[i+m_curr_contigreg].set_index(i+m_curr_contigreg);
 			}
 			return out_regs;
 		}
 	};
+#else 
+	class register_file_builder_t {
+		//more alias registers exist than whole registers
 
+		static constexpr unsigned NAVAIL_ALIASES = TOTAL_CONTIGREGS * 2;
+		/*
+		unsigned m_current_bit_offset;
+		unsigned m_curr_contigreg;
+		std::array< contigreg_t, TOTAL_CONTIGREGS> m_contigregs;
+
+		unsigned m_curr_alias;
+		std::array< contigreg_t, NAVAIL_ALIASES> m_contigreg_subents;*/
+
+		unsigned m_current_bit_offset;
+		unsigned m_curr_contigreg;
+		std::array< contigreg_t, TOTAL_CONTIGREGS*4> m_contigregs;
+
+
+	public:
+		constexpr register_file_builder_t() : m_current_bit_offset(0), m_curr_contigreg(0), m_contigregs({}) {}
+
+
+		constexpr contigreg_t* find_contigreg_by_name(const char* name) {
+
+			for (unsigned i = 0; i < m_curr_contigreg; ++i) {
+				if (const_ops::cstreq(name, m_contigregs[i].m_name)) {
+					return &m_contigregs[i];
+				}
+			}
+			return nullptr;
+		}
+
+
+		constexpr void add_register(const char* name, unsigned bit_length, unsigned ida_reg) {
+			m_contigregs[m_curr_contigreg++] = contigreg_t{ name, m_current_bit_offset, bit_length, ida_reg };
+
+			m_current_bit_offset += bit_length;
+
+		}
+
+		constexpr void add_subreg(const char* master_name, const char* subname, unsigned displ, unsigned bitlength, unsigned idareg) {
+			//cs_constexpr_assert(m_curr_alias < NAVAIL_ALIASES);
+
+			m_contigregs[m_curr_contigreg++] = find_contigreg_by_name(master_name)->make_subentity(subname, displ, bitlength, idareg);
+		}
+
+
+		constexpr unsigned finalized_size() const {
+			return m_curr_contigreg;
+		}
+		template<size_t n>
+		constexpr std::array<contigreg_t, n> finalize() const {
+			std::array<contigreg_t, n> out_regs{};
+
+			for (unsigned i = 0; i < m_curr_contigreg; ++i) {
+				out_regs[i] = m_contigregs[i];
+				out_regs[i].set_index(i);
+			}
+			/*
+			for (unsigned i = 0; i < m_curr_alias; ++i) {
+				out_regs[i + m_curr_contigreg] = m_contigreg_subents[i];
+				out_regs[i + m_curr_contigreg].set_index(i + m_curr_contigreg);
+			}*/
+			return out_regs;
+		}
+	};
+#endif
 	template<void (*build_file)(register_file_builder_t&)>
 	struct file_generator_t {
 		static constexpr register_file_builder_t _initial() {
@@ -548,7 +645,8 @@ namespace cs::register_file::_build_register_file {
 		f.add_register("FPTAGS", 8, idr::fptags);
 		f.add_register("FPCTRL", 16, idr::fpctrl);
 		f.add_register("FPSTATUS", 16, idr::fpstat);
-
+		//causes an internal error in msvc so disabled for now
+#if 0
 		encode_zmmaliases<0>(f);
 		encode_zmmaliases<1>(f);
 		encode_zmmaliases<2>(f);
@@ -583,10 +681,114 @@ namespace cs::register_file::_build_register_file {
 		encode_zmmaliases<31>(f);
 
 
+	
+#else
+		/*
+		pre-generated in chrome dev console with 
+		lel=""
+		for(let i = 0; i < 32; ++i) lel+=`f.add_register("ZMM${i}", 512, idr::zmm${i});\nf.add_subreg("ZMM${i}","YMM${i}", 0, 256, idr::ymm${i});\nf.add_subreg("ZMM${i}","XMM${i}", 0, 128, idr::xmm${i});\n`
+		rip fancy template magix
+		*/
+		f.add_register("ZMM0", 512, idr::zmm0);
+		f.add_subreg("ZMM0", "YMM0", 0, 256, idr::ymm0);
+		f.add_subreg("ZMM0", "XMM0", 0, 128, idr::xmm0);
+		f.add_register("ZMM1", 512, idr::zmm1);
+		f.add_subreg("ZMM1", "YMM1", 0, 256, idr::ymm1);
+		f.add_subreg("ZMM1", "XMM1", 0, 128, idr::xmm1);
+		f.add_register("ZMM2", 512, idr::zmm2);
+		f.add_subreg("ZMM2", "YMM2", 0, 256, idr::ymm2);
+		f.add_subreg("ZMM2", "XMM2", 0, 128, idr::xmm2);
+		f.add_register("ZMM3", 512, idr::zmm3);
+		f.add_subreg("ZMM3", "YMM3", 0, 256, idr::ymm3);
+		f.add_subreg("ZMM3", "XMM3", 0, 128, idr::xmm3);
+		f.add_register("ZMM4", 512, idr::zmm4);
+		f.add_subreg("ZMM4", "YMM4", 0, 256, idr::ymm4);
+		f.add_subreg("ZMM4", "XMM4", 0, 128, idr::xmm4);
+		f.add_register("ZMM5", 512, idr::zmm5);
+		f.add_subreg("ZMM5", "YMM5", 0, 256, idr::ymm5);
+		f.add_subreg("ZMM5", "XMM5", 0, 128, idr::xmm5);
+		f.add_register("ZMM6", 512, idr::zmm6);
+		f.add_subreg("ZMM6", "YMM6", 0, 256, idr::ymm6);
+		f.add_subreg("ZMM6", "XMM6", 0, 128, idr::xmm6);
+		f.add_register("ZMM7", 512, idr::zmm7);
+		f.add_subreg("ZMM7", "YMM7", 0, 256, idr::ymm7);
+		f.add_subreg("ZMM7", "XMM7", 0, 128, idr::xmm7);
+		f.add_register("ZMM8", 512, idr::zmm8);
+		f.add_subreg("ZMM8", "YMM8", 0, 256, idr::ymm8);
+		f.add_subreg("ZMM8", "XMM8", 0, 128, idr::xmm8);
+		f.add_register("ZMM9", 512, idr::zmm9);
+		f.add_subreg("ZMM9", "YMM9", 0, 256, idr::ymm9);
+		f.add_subreg("ZMM9", "XMM9", 0, 128, idr::xmm9);
+		f.add_register("ZMM10", 512, idr::zmm10);
+		f.add_subreg("ZMM10", "YMM10", 0, 256, idr::ymm10);
+		f.add_subreg("ZMM10", "XMM10", 0, 128, idr::xmm10);
+		f.add_register("ZMM11", 512, idr::zmm11);
+		f.add_subreg("ZMM11", "YMM11", 0, 256, idr::ymm11);
+		f.add_subreg("ZMM11", "XMM11", 0, 128, idr::xmm11);
+		f.add_register("ZMM12", 512, idr::zmm12);
+		f.add_subreg("ZMM12", "YMM12", 0, 256, idr::ymm12);
+		f.add_subreg("ZMM12", "XMM12", 0, 128, idr::xmm12);
+		f.add_register("ZMM13", 512, idr::zmm13);
+		f.add_subreg("ZMM13", "YMM13", 0, 256, idr::ymm13);
+		f.add_subreg("ZMM13", "XMM13", 0, 128, idr::xmm13);
+		f.add_register("ZMM14", 512, idr::zmm14);
+		f.add_subreg("ZMM14", "YMM14", 0, 256, idr::ymm14);
+		f.add_subreg("ZMM14", "XMM14", 0, 128, idr::xmm14);
+		f.add_register("ZMM15", 512, idr::zmm15);
+		f.add_subreg("ZMM15", "YMM15", 0, 256, idr::ymm15);
+		f.add_subreg("ZMM15", "XMM15", 0, 128, idr::xmm15);
+		f.add_register("ZMM16", 512, idr::zmm16);
+		f.add_subreg("ZMM16", "YMM16", 0, 256, idr::ymm16);
+		f.add_subreg("ZMM16", "XMM16", 0, 128, idr::xmm16);
+		f.add_register("ZMM17", 512, idr::zmm17);
+		f.add_subreg("ZMM17", "YMM17", 0, 256, idr::ymm17);
+		f.add_subreg("ZMM17", "XMM17", 0, 128, idr::xmm17);
+		f.add_register("ZMM18", 512, idr::zmm18);
+		f.add_subreg("ZMM18", "YMM18", 0, 256, idr::ymm18);
+		f.add_subreg("ZMM18", "XMM18", 0, 128, idr::xmm18);
+		f.add_register("ZMM19", 512, idr::zmm19);
+		f.add_subreg("ZMM19", "YMM19", 0, 256, idr::ymm19);
+		f.add_subreg("ZMM19", "XMM19", 0, 128, idr::xmm19);
+		f.add_register("ZMM20", 512, idr::zmm20);
+		f.add_subreg("ZMM20", "YMM20", 0, 256, idr::ymm20);
+		f.add_subreg("ZMM20", "XMM20", 0, 128, idr::xmm20);
+		f.add_register("ZMM21", 512, idr::zmm21);
+		f.add_subreg("ZMM21", "YMM21", 0, 256, idr::ymm21);
+		f.add_subreg("ZMM21", "XMM21", 0, 128, idr::xmm21);
+		f.add_register("ZMM22", 512, idr::zmm22);
+		f.add_subreg("ZMM22", "YMM22", 0, 256, idr::ymm22);
+		f.add_subreg("ZMM22", "XMM22", 0, 128, idr::xmm22);
+		f.add_register("ZMM23", 512, idr::zmm23);
+		f.add_subreg("ZMM23", "YMM23", 0, 256, idr::ymm23);
+		f.add_subreg("ZMM23", "XMM23", 0, 128, idr::xmm23);
+		f.add_register("ZMM24", 512, idr::zmm24);
+		f.add_subreg("ZMM24", "YMM24", 0, 256, idr::ymm24);
+		f.add_subreg("ZMM24", "XMM24", 0, 128, idr::xmm24);
+		f.add_register("ZMM25", 512, idr::zmm25);
+		f.add_subreg("ZMM25", "YMM25", 0, 256, idr::ymm25);
+		f.add_subreg("ZMM25", "XMM25", 0, 128, idr::xmm25);
+		f.add_register("ZMM26", 512, idr::zmm26);
+		f.add_subreg("ZMM26", "YMM26", 0, 256, idr::ymm26);
+		f.add_subreg("ZMM26", "XMM26", 0, 128, idr::xmm26);
+		f.add_register("ZMM27", 512, idr::zmm27);
+		f.add_subreg("ZMM27", "YMM27", 0, 256, idr::ymm27);
+		f.add_subreg("ZMM27", "XMM27", 0, 128, idr::xmm27);
+		f.add_register("ZMM28", 512, idr::zmm28);
+		f.add_subreg("ZMM28", "YMM28", 0, 256, idr::ymm28);
+		f.add_subreg("ZMM28", "XMM28", 0, 128, idr::xmm28);
+		f.add_register("ZMM29", 512, idr::zmm29);
+		f.add_subreg("ZMM29", "YMM29", 0, 256, idr::ymm29);
+		f.add_subreg("ZMM29", "XMM29", 0, 128, idr::xmm29);
+		f.add_register("ZMM30", 512, idr::zmm30);
+		f.add_subreg("ZMM30", "YMM30", 0, 256, idr::ymm30);
+		f.add_subreg("ZMM30", "XMM30", 0, 128, idr::xmm30);
+		f.add_register("ZMM31", 512, idr::zmm31);
+		f.add_subreg("ZMM31", "YMM31", 0, 256, idr::ymm31);
+		f.add_subreg("ZMM31", "XMM31", 0, 128, idr::xmm31);
 		auto add_kmaskreg = [&f](const char* name, unsigned idareg) {
 			f.add_register(name, 64, idareg);
 		};
-		
+
 		add_kmaskreg("K0", idr::k0);
 		add_kmaskreg("K1", idr::k1);
 		add_kmaskreg("K2", idr::k2);
@@ -598,12 +800,33 @@ namespace cs::register_file::_build_register_file {
 
 
 		f.add_register("MXCSR", 32, idr::mxcsr);
+#endif
 	}
-
+	/*
 	template<void (*build_file)(register_file_builder_t&)>
 	static constexpr auto register_file_result = file_generator_t<build_file>::register_file;
 
+	*/
 
-	constexpr auto file = register_file_result< build_x86_register_file>;
+	constexpr unsigned register_file_x86_64_length = file_generator_t<build_x86_register_file>::_finalized_sz;
+
+
+	static constexpr std::array<contigreg_t, register_file_x86_64_length> register_file_x86_64 = file_generator_t<build_x86_register_file>::register_file;
+
+
+}
+
+namespace cs::register_file {
+
+	
+	/*
+		we put all runtime ops involving the register file in the cpp file to avoid multiple tables being created
+		and only use the constexpr register file model in constant expressions everywhere else
+	*/
+
+	const contigreg_t* idareg_to_contigreg(unsigned idr);
+
+
+
 
 }
