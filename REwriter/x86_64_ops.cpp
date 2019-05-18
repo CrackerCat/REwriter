@@ -313,8 +313,17 @@ static constexpr oplut_t g_iset_spoils_zcaspo_flags = make_oplut <
 	NN_S_vucomisd,
 	NN_S_vucomiss,
 	NN_S_xor,
-	NN_S_xadd
+	NN_S_xadd,
 
+	NN_S_kortestb,
+	NN_S_kortestw,
+	NN_S_kortestq,
+	NN_S_kortestd,
+
+	NN_S_ktestb,
+	NN_S_ktestw,
+	NN_S_ktestq,
+	NN_S_ktestd
 >();
 static constexpr oplut_t g_iset_spoils_carry_flag = make_oplut <
 	NN_S_adc,
@@ -371,6 +380,7 @@ static constexpr oplut_t g_iset_spoils_zero_flag = make_oplut <
 	NN_S_imul,
 	NN_S_dec,
 	NN_S_inc
+
 	//incomplete list
 >();
 
