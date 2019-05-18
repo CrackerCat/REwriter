@@ -1,5 +1,5 @@
 #pragma once
-
+#ifndef _MSC_VER
 template<typename T>
 struct ptr32_t {
 private:
@@ -99,3 +99,8 @@ public:
 		return get()[idx];
 	}
 };
+
+#else
+template<typename T>
+using ptr32_t = T * __ptr32;
+#endif

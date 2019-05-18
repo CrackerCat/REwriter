@@ -312,7 +312,8 @@ static constexpr oplut_t g_iset_spoils_zcaspo_flags = make_oplut <
 	NN_S_ucomiss,
 	NN_S_vucomisd,
 	NN_S_vucomiss,
-	NN_S_xor
+	NN_S_xor,
+	NN_S_xadd
 
 >();
 static constexpr oplut_t g_iset_spoils_carry_flag = make_oplut <

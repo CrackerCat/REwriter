@@ -184,7 +184,7 @@ unsigned eliminate_null_pointer_allocation_result_checks(ea_t address) {
 
 bool idaapi run(size_t)
 {
-#if 0
+#if 1
 	ea_t ea = get_screen_ea();
 
 	csfunc_t result{};
@@ -252,12 +252,14 @@ bool idaapi run(size_t)
 int idaapi init(void)
 {
 	cs::mem::init_memmanager();
+	cs::function_classes::init_class_tree();
 	return PLUGIN_KEEP;
 }
 
 //--------------------------------------------------------------------------
 void idaapi term(void)
 {
+	cs::function_classes::deinit_class_tree();
 	cs::mem::shutdown_memmanager();
 }
 

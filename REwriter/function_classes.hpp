@@ -1,6 +1,7 @@
 #pragma once
 #include "cs_core.hpp"
 #include "cs_ida.hpp"
+#include "mem_manager.hpp"
 #include <array>
 
 namespace cs::function_classes {
@@ -28,44 +29,58 @@ namespace cs::function_classes {
 			return m_hashcode;
 		}
 
-	
-	};
-	template<typename... Ts>
-	class cs_funcset_t {
-		const std::array<cs_funcdescr_t, sizeof...(Ts)> m_arr;
-	public:
-		constexpr cs_funcset_t(Ts&& ... args) : m_arr({ args... })
-		{}
-
-		bool is_member(const char* name, unsigned length, unsigned hashcode) const {
-			bool result = false;
-
-			for (unsigned i = 0; i < sizeof...(Ts); ++i) {
-				auto&& descr = m_arr[i];
-
-				if (descr.length() == length && descr.hashcode() == hashcode) {
-					if (!strcmp(descr.name(), name)) {
-						result = true;
-						break;
-					}
-				}
-			}
-			return result;
-		}
 
 	};
-	template<typename... Ts>
-	static constexpr auto make_funcset(Ts&& ...args) {
-		return cs_funcset_t{ cs_funcdescr_t{args} ... };
-	}
 
-	enum class cs_funcclass_t : uint8_t{
+
+
+
+	enum class cs_funcclass_t : uint8_t {
 #define FCLASS(name)		name,
 #include "function_class_xmacro.hpp"
 
 #undef FCLASS
 		none
 	};
+
+	struct cs_funcset_submit_t {
+		unsigned m_len;
+		unsigned m_hashcode;
+		const char* m_name;
+		inline bool operator <(cs_funcset_submit_t other)const {
+			return m_len < other.m_len || m_hashcode < other.m_hashcode || strcmp(m_name, other.m_name) < 0;
+
+		}
+		//cs_funcclass_t m_cls;
+	};
+
+	using cs_funcclass_tree_t = std::map< cs_funcset_submit_t, cs_funcclass_t, std::less<cs_funcset_submit_t>>;//, 
+		//cs::mem::low32_allocator<std::pair<const cs_funcset_submit_t, cs_funcclass_t>>>;
+
+	template<typename... Ts>
+	class cs_funcset_t {
+		const std::array<cs_funcdescr_t, sizeof...(Ts)> m_arr;
+		const cs_funcclass_t m_cls;
+	public:
+		constexpr cs_funcset_t(cs_funcclass_t cls, Ts&& ... args) : m_arr({ args... }), m_cls(cls)
+		{}
+
+
+		void add_to_tree(cs_funcclass_tree_t& tr) const {
+			for (unsigned i = 0; i < sizeof...(Ts); ++i) {
+				auto&& descr = m_arr[i];
+				cs_funcset_submit_t sub{  descr.length(),descr.hashcode(),descr.name() };
+				tr[sub] = m_cls;
+			}
+		}
+
+	};
+	template<typename... Ts>
+	static constexpr auto make_funcset(cs_funcclass_t cls, Ts&& ...args) {
+		return cs_funcset_t{ cls, cs_funcdescr_t{args} ... };
+	}
+
+
 
 	/*
 	bool is_memory_allocation(const char* s, unsigned length, unsigned hashcode);
@@ -75,4 +90,7 @@ namespace cs::function_classes {
 	cs_funcclass_t classify_call(insn_t* ins);
 
 	const char* function_class_to_string(cs_funcclass_t claz);
+
+	void init_class_tree();
+	void deinit_class_tree();
 }
