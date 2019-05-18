@@ -42,4 +42,16 @@ namespace cs::const_ops {
 
 		return s1[i] == 0 && s2[i] == 0;
 	}
+
+	constexpr char _constexpr_assert(bool expr, const char* str, unsigned sz) {
+		if (!expr) {
+			throw str;
+			
+		}
+		else {
+			return 0;
+		}
+	}
+
+#define cs_constexpr_assert(...)	cs::const_ops::_constexpr_assert((__VA_ARGS__), #__VA_ARGS__, sizeof(#__VA_ARGS__));
 }
