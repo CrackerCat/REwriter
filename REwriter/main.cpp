@@ -6,7 +6,7 @@
 #include "mem_manager.hpp"
 
 #include "cs_type_metaops.hpp"
-
+#include "register_file_x86_64.hpp"
 void eliminate_security_check_cookie() {
 	unsigned nelims_cookie = 0;
 	unsigned nelim_guard_disp = 0;
