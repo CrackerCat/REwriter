@@ -570,9 +570,11 @@ namespace cs::register_file::_build_register_file {
 	constexpr void build_x86_register_file(register_file_builder_t& f) {
 		namespace idr = ida_registers;
 		f.add_register("RAX", 64, idr::rax);
-
+		auto lowgp = [&f](const char* master, const char* n, unsigned idareg) {
+			f.add_subreg(master, n, 0, 8, idareg);
+		};
 		f.add_subreg("RAX", "AH", 8, 8, idr::ah);
-
+		
 		f.add_register("RBX", 64, idr::rbx);
 		f.add_subreg("RBX", "BH", 8, 8, idr::bh);
 
@@ -587,6 +589,18 @@ namespace cs::register_file::_build_register_file {
 		f.add_register("RSP", 64, idr::rsp);
 		f.add_register("RSI", 64, idr::rsi);
 		f.add_register("RDI", 64, idr::rdi);
+
+
+
+		lowgp("RAX", "AL", idr::al);
+		lowgp("RCX", "CL", idr::cl);
+		lowgp("RDX", "DL", idr::dl);
+		lowgp("RBX", "BL", idr::bl);
+		lowgp("RSP", "SPL", idr::spl);
+		lowgp("RBP", "BPL", idr::bpl);
+		lowgp("RSI", "SIL", idr::sil);
+		lowgp("RDI", "DIL", idr::dil);
+
 		f.add_register("R8", 64, idr::r8);
 		f.add_register("R9", 64, idr::r9);
 		f.add_register("R10", 64, idr::r10);
@@ -595,13 +609,20 @@ namespace cs::register_file::_build_register_file {
 		f.add_register("R13", 64, idr::r13);
 		f.add_register("R14", 64, idr::r14);
 		f.add_register("R15", 64, idr::r15);
+
+
 		f.add_register("RIP", 64, idr::rip);
+
+
+
 		f.add_register("RFLAGS", 64, idr::rfl);
 
 		auto add_rflag = [&f](const char* name, unsigned offs, unsigned idareg) {
 			f.add_subreg("RFLAGS", name, offs, 1, idareg);
 		};
 		
+
+
 
 		add_rflag("CF", 0, idr::cf);
 		add_rflag("PF", 2, idr::pf);
@@ -827,6 +848,6 @@ namespace cs::register_file {
 	const contigreg_t* idareg_to_contigreg(unsigned idr);
 
 
-
+	void dump_register_file_info_for_debugging( void (*printer)(const char*));
 
 }

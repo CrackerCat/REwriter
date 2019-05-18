@@ -182,9 +182,36 @@ unsigned eliminate_null_pointer_allocation_result_checks(ea_t address) {
 	return n_elims;
 }
 
+void print_newline(const char* m) {
+	msg("%s\n", m);
+}
+
 bool idaapi run(size_t)
 {
 #if 1
+#if 0
+	cs::register_file::dump_register_file_info_for_debugging(print_newline);
+
+	for (unsigned i = 0; i < cs::register_file::ida_registers::NIDAREGS; ++i) {
+
+		auto contig = cs::register_file::idareg_to_contigreg(i);
+		qstring idaregname{};
+
+
+		if (!contig) {
+			get_reg_name(&idaregname, i, 4);
+
+			msg("Register %d is null. IDA name is %s\n", i, idaregname.c_str());
+		}
+		else {
+			get_reg_name(&idaregname, contig->idareg(), contig->bitlength() < 8 ? 1 : contig->bitlength() / 8);
+
+			msg("We have the register name as %s, ida has it as %s.\n", contig->name(), idaregname.c_str());
+			
+		}
+
+	}
+#endif
 	ea_t ea = get_screen_ea();
 
 	csfunc_t result{};
