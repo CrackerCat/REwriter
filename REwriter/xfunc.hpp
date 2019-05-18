@@ -7,6 +7,7 @@
 #include "patchops.hpp"
 
 #include "function_classes.hpp"
+#include "register_file_x86_64.hpp"
 class csinsn_t;
 class csbb_t;
 
@@ -418,8 +419,20 @@ public:
 
 		for (unsigned i = 0; i < m_operand_count; ++i) {
 			qstring operand{};
-			print_operand(&operand, ea, i);
-			tag_remove(&operand, 0);
+
+			
+			if (ops[i].type == o_reg && cs::register_file::idareg_to_contigreg(ops[i].reg)) {
+
+				auto cont = cs::register_file::idareg_to_contigreg(ops[i].reg);
+
+				operand.sprnt("%s(%X:%X)", cont->name(), cont->bitoffset(), cont->bitlength());
+			}
+			else {
+				print_operand(&operand, ea, i);
+				tag_remove(&operand, 0);
+			}
+		
+			
 			res += qstring(" ") +  operand;
 			
 			if (i != m_operand_count - 1) {

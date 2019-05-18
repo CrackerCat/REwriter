@@ -27,6 +27,7 @@ constexpr idareg_remaptable_t build_remaptable() {
 
 	for (unsigned i = 0; i < ida_registers::NIDAREGS; ++i) {
 		unsigned p = find_reg_for_idareg(i);
+	
 		result[i] = p;
 	}
 	return result;

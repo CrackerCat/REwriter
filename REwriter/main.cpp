@@ -204,7 +204,7 @@ bool idaapi run(size_t)
 
 			msg("\t%s\n", istr.c_str());
 
-			if (ins->is_conditional_branch()) {
+			/*if (ins->is_conditional_branch()) {
 				csreglist_t cond_uses{};
 
 				ins->gen_use_list(&cond_uses);
@@ -227,7 +227,7 @@ bool idaapi run(size_t)
 					}
 				}
 
-			}
+			}*/
 		}
 	}
 
