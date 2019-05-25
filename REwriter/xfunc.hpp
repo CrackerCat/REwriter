@@ -194,7 +194,7 @@ public:
 
 
 	void gen_use_list(csreglist_t* CS_RESTRICT out) CS_RESTRICT {
-
+		cs_assert(out != nullptr);
 		if (opcode_classes::uses_carry_flag(m_norm_op)) {
 			out->add(cs::x86regs::CF, 1);
 		}
@@ -823,6 +823,7 @@ public:
 
 
 	void linkin_block(csbb_t* bb) {
+		cs_assert(bb != nullptr);
 		if (!m_blocks_head && !m_blocks_tail) {
 			m_blocks_head = bb;
 			m_blocks_tail = bb;

@@ -1,4 +1,5 @@
 #include "cs_core.hpp"
+#include <memory>
 #include "idaheaders.hpp"
 
 #include <Windows.h>
@@ -7,11 +8,20 @@
 
 #include "cs_type_metaops.hpp"
 #include "register_file_x86_64.hpp"
+
+
+
+
+
+
+
+
 void eliminate_security_check_cookie() {
 	unsigned nelims_cookie = 0;
 	unsigned nelim_guard_disp = 0;
 	unsigned ntrivial_inlines = 0;
 	unsigned ncondbranch_elims = 0;
+	
 	for (auto func : cs::forall_funcs()) {
 		csfunc_t fn{};
 		if (csfunc_t::decode(&fn, func) == -1) {

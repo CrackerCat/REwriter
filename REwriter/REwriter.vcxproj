@@ -159,6 +159,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="cs_core.cpp" />
     <ClCompile Include="function_classes.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="mem_manager.cpp" />
@@ -168,6 +169,8 @@
     <ClCompile Include="x86_64_ops.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="bitsim\bitsim.hpp" />
+    <ClInclude Include="bitsim\bitsim_impl.hpp" />
     <ClInclude Include="cs_core.hpp" />
     <ClInclude Include="cs_ida.hpp" />
     <ClInclude Include="cs_intrin.hpp" />

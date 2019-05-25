@@ -1,6 +1,23 @@
 #pragma once
+
+/*
+	
+	x86-64 is a fairly messy architecture in terms of its registers.
+	Because of the variable operand sizes and ability to reference smaller pieces of registers like the
+	xmm and ymm registers or the xh/xl pieces of general purpose registers it seems more reliable in the long run
+	to trace use/def using individual bits of values.
+
+	We build our register file up with a series of constexpr methods so that we can easily custom-tune our code for
+	the architecture. The registers are mapped to a single contiguous block of bits, with each register having a name,
+	a bit offset, a bit length, the id of the corresponding register in the ida processor module, and an index. The index is 
+	arbitrary and just defines the registers index within the array that contains the individual registers.
+
+*/
+
 #include "cs_core.hpp"
 #include <array>
+
+
 namespace cs::register_file {
 	namespace _build_register_file {
 		class register_file_builder_t;
@@ -378,83 +395,14 @@ namespace cs::register_file::_build_register_file {
 
 	
 	
-#if 0
+
 	class register_file_builder_t {
 		//more alias registers exist than whole registers
-
-		static constexpr unsigned NAVAIL_ALIASES = TOTAL_CONTIGREGS*2;
-
-		unsigned m_current_bit_offset;
-		unsigned m_curr_contigreg;
-		std::array< contigreg_t, TOTAL_CONTIGREGS> m_contigregs;
-
-		unsigned m_curr_alias;
-		std::array< contigreg_t, NAVAIL_ALIASES> m_contigreg_subents;
-
-	public:
-		constexpr register_file_builder_t() : m_current_bit_offset(0), m_curr_contigreg(0), m_contigregs({}), m_curr_alias(0), m_contigreg_subents({}) {}
-
-
-		constexpr contigreg_t* find_contigreg_by_name(const char* name) {
-
-			for (unsigned i = 0; i < m_curr_contigreg; ++i) {
-				if (const_ops::cstreq(name, m_contigregs[i].m_name)) {
-					return &m_contigregs[i];
-				}
-			}
-			return nullptr;
-		}
-
-		
-		constexpr void add_register(const char* name, unsigned bit_length, unsigned ida_reg) {
-			m_contigregs[m_curr_contigreg++] = contigreg_t{ name, m_current_bit_offset, bit_length, ida_reg };
-
-			m_current_bit_offset += bit_length;
-
-		}
-
-		constexpr void add_subreg(const char* master_name, const char* subname, unsigned displ, unsigned bitlength, unsigned idareg) {
-			//cs_constexpr_assert(m_curr_alias < NAVAIL_ALIASES);
-
-			m_contigreg_subents[m_curr_alias++] = find_contigreg_by_name(master_name)->make_subentity(subname, displ, bitlength, idareg);
-		}
-
-
-		constexpr unsigned finalized_size() const {
-			return m_curr_contigreg + m_curr_alias;
-		}
-		template<size_t n> 
-		constexpr std::array<contigreg_t, n> finalize() const {
-			std::array<contigreg_t, n> out_regs{};
-			
-			for (unsigned i = 0; i < m_curr_contigreg; ++i) {
-				out_regs[i] = m_contigregs[i];
-				out_regs[i].set_index(i);
-			}
-
-			for (unsigned i = 0; i < m_curr_alias; ++i) {
-				out_regs[i + m_curr_contigreg] = m_contigreg_subents[i];
-				out_regs[i+m_curr_contigreg].set_index(i+m_curr_contigreg);
-			}
-			return out_regs;
-		}
-	};
-#else 
-	class register_file_builder_t {
-		//more alias registers exist than whole registers
-
-		static constexpr unsigned NAVAIL_ALIASES = TOTAL_CONTIGREGS * 2;
-		/*
-		unsigned m_current_bit_offset;
-		unsigned m_curr_contigreg;
-		std::array< contigreg_t, TOTAL_CONTIGREGS> m_contigregs;
-
-		unsigned m_curr_alias;
-		std::array< contigreg_t, NAVAIL_ALIASES> m_contigreg_subents;*/
+		static constexpr unsigned NAVAIL_ALIASES = TOTAL_CONTIGREGS * 4;
 
 		unsigned m_current_bit_offset;
 		unsigned m_curr_contigreg;
-		std::array< contigreg_t, TOTAL_CONTIGREGS*4> m_contigregs;
+		std::array< contigreg_t, NAVAIL_ALIASES> m_contigregs;
 
 
 	public:
@@ -480,8 +428,6 @@ namespace cs::register_file::_build_register_file {
 		}
 
 		constexpr void add_subreg(const char* master_name, const char* subname, unsigned displ, unsigned bitlength, unsigned idareg) {
-			//cs_constexpr_assert(m_curr_alias < NAVAIL_ALIASES);
-
 			m_contigregs[m_curr_contigreg++] = find_contigreg_by_name(master_name)->make_subentity(subname, displ, bitlength, idareg);
 		}
 
@@ -497,15 +443,11 @@ namespace cs::register_file::_build_register_file {
 				out_regs[i] = m_contigregs[i];
 				out_regs[i].set_index(i);
 			}
-			/*
-			for (unsigned i = 0; i < m_curr_alias; ++i) {
-				out_regs[i + m_curr_contigreg] = m_contigreg_subents[i];
-				out_regs[i + m_curr_contigreg].set_index(i + m_curr_contigreg);
-			}*/
+		
 			return out_regs;
 		}
 	};
-#endif
+
 	template<void (*build_file)(register_file_builder_t&)>
 	struct file_generator_t {
 		static constexpr register_file_builder_t _initial() {
@@ -667,7 +609,7 @@ namespace cs::register_file::_build_register_file {
 		f.add_register("FPCTRL", 16, idr::fpctrl);
 		f.add_register("FPSTATUS", 16, idr::fpstat);
 		//causes an internal error in msvc so disabled for now
-#if 0
+#ifndef _MSC_VER
 		encode_zmmaliases<0>(f);
 		encode_zmmaliases<1>(f);
 		encode_zmmaliases<2>(f);
@@ -806,6 +748,8 @@ namespace cs::register_file::_build_register_file {
 		f.add_register("ZMM31", 512, idr::zmm31);
 		f.add_subreg("ZMM31", "YMM31", 0, 256, idr::ymm31);
 		f.add_subreg("ZMM31", "XMM31", 0, 128, idr::xmm31);
+
+
 		auto add_kmaskreg = [&f](const char* name, unsigned idareg) {
 			f.add_register(name, 64, idareg);
 		};
