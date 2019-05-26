@@ -98,6 +98,9 @@
     <ClInclude Include="bitsim\bitsim_impl.hpp">
       <Filter>Header Files\bitsim</Filter>
     </ClInclude>
+    <ClInclude Include="bitgraph.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

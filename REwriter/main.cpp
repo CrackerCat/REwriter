@@ -10,11 +10,24 @@
 #include "register_file_x86_64.hpp"
 
 
+#include "bitgraph.hpp"
 
+void test_bitgraph() {
+	bg_man_t manager{};
 
+	bg_aggr_t<32> x{ &manager };
+	bg_aggr_t<32> y{ &manager };
+	x.set_constant(0xFDEDD00D);
+	y.set_constant(0x83747432);
+	bg_node_ref_t lel{};
+	auto res = bitgraph_simulation_t::mul_aggrs(x, y);
 
+	auto lmao = res.to_u64_consts();
 
+	auto realval = 0xFDEDD00D* 0x83747432;
 
+	int lelelelel = 0;
+}
 
 void eliminate_security_check_cookie() {
 	unsigned nelims_cookie = 0;
@@ -198,6 +211,7 @@ void print_newline(const char* m) {
 
 bool idaapi run(size_t)
 {
+	test_bitgraph();
 #if 1
 #if 0
 	cs::register_file::dump_register_file_info_for_debugging(print_newline);

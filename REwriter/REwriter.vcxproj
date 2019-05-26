@@ -169,6 +169,7 @@
     <ClCompile Include="x86_64_ops.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="bitgraph.hpp" />
     <ClInclude Include="bitsim\bitsim.hpp" />
     <ClInclude Include="bitsim\bitsim_impl.hpp" />
     <ClInclude Include="cs_core.hpp" />
